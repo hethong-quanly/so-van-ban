@@ -1,0 +1,21 @@
+{
+  "id": "/so-van-ban/",
+  "name": "Sổ văn bản tố tụng — VKSND",
+  "short_name": "Sổ VB",
+  "description": "Quét văn bản tố tụng, ghi sổ đến và lưu file dữ liệu. Cài ra màn hình điện thoại.",
+  "lang": "vi",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e6d9c6",
+  "theme_color": "#8e1d2c",
+  "categories": ["productivity", "government"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
