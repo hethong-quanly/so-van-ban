@@ -1,5 +1,5 @@
-const CACHE = "so-van-ban-v7";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./favicon.svg", "./offline.html"];
+const CACHE = "so-van-ban-v8";
+const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./offline.html"];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
