@@ -1,4 +1,4 @@
-const CACHE = "so-van-ban-v22";
+const CACHE = "so-van-ban-v23";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./offline.html"];
 
 self.addEventListener("install", (event) => {
