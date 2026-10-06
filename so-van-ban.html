@@ -41,7 +41,10 @@
 <div class="bar">
   <button id="btnDisk" type="button">Nối D:\Sovanban</button>
   <button id="btnExcel" class="line" type="button">Tải Excel cập nhật</button>
-  <button id="btnOut" class="line" type="button">Xuất Excel</button>
+  <input id="outDay" type="date" aria-label="Chọn ngày xuất">
+  <button id="btnOutDay" class="line" type="button">Xuất ngày này</button>
+  <button id="btnOutPrev" class="line" type="button">Xuất ngày trước</button>
+  <button id="btnOut" class="line" type="button">Xuất tất cả</button>
   <button id="btnAdd" class="line" type="button">Thêm văn bản</button>
   <input id="q" placeholder="Tìm số đến, cơ quan, trích yếu…" style="min-width:220px;flex:1">
   <input id="day" type="date" aria-label="Lọc ngày nhận">
@@ -419,11 +422,21 @@ async function importXlsx(file) {
   }
   return added;
 }
-function exportExcel() {
+function shiftDay(iso, delta) {
+  const parts = String(iso || "").split("-").map(Number);
+  const date = new Date(parts[0] || 2026, (parts[1] || 1) - 1, parts[2] || 1);
+  date.setDate(date.getDate() + delta);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return date.getFullYear() + "-" + mm + "-" + dd;
+}
+function exportExcel(day) {
   const headers = ["NGÀY","SỐ ĐẾN","NƠI GỬI VĂN BẢN","VĂN BẢN ĐẾN","NGÀY VĂN BẢN","LOẠI VĂN BẢN","TRÍCH YẾU NỘI DUNG CỦA VĂN BẢN","NHẬN VĂN BẢN","KÝ NHẬN","GHI CHÚ"];
   const keys = ["ngayNhan","soDen","noiGui","soKyHieu","ngayBanHanh","loai","trichYeu","nguoiNhan","kyNhan","ghiChu"];
   const cell = (value) => `<Cell><Data ss:Type="String">${esc(value)}</Data></Cell>`;
-  const body = [...records].sort(compareRows).map((row) => `<Row>${keys.map((key) => cell(key.startsWith("ngay") ? showDate(row[key]) : row[key])).join("")}</Row>`).join("");
+  const chosen = [...records].filter((row) => !day || row.ngayNhan === day).sort(compareRows);
+  if (!chosen.length) { alert(day ? "Ngày này chưa có văn bản." : "Sổ chưa có dữ liệu để xuất."); return; }
+  const body = chosen.map((row) => `<Row>${keys.map((key) => cell(key.startsWith("ngay") ? showDate(row[key]) : row[key])).join("")}</Row>`).join("");
   const xml = `<?xml version="1.0"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
@@ -434,7 +447,7 @@ ${body}
   const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "So-van-ban-to-tung-" + year + ".xls";
+  a.download = "So-van-ban-" + (day || ("toan-bo-" + year)) + ".xls";
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -445,7 +458,13 @@ $("page").addEventListener("change", () => { page = Number($("page").value); ren
 $("prev").addEventListener("click", () => { page = Math.max(1, page - 1); render(); });
 $("next").addEventListener("click", () => { page += 1; render(); });
 $("btnAdd").addEventListener("click", () => openForm(null));
-$("btnOut").addEventListener("click", exportExcel);
+$("btnOut").addEventListener("click", () => exportExcel(""));
+$("btnOutDay").addEventListener("click", () => exportExcel($("outDay").value));
+$("btnOutPrev").addEventListener("click", () => {
+  const day = shiftDay($("outDay").value, -1);
+  $("outDay").value = day;
+  exportExcel(day);
+});
 $("btnExcel").addEventListener("click", () => $("file").click());
 $("btnDisk").addEventListener("click", () => connectDisk().catch((error) => {
   if (error && error.name === "AbortError") return;
@@ -484,6 +503,8 @@ window.addEventListener("pagehide", () => { if (folderReady) void writeDisk(); }
 setInterval(() => { if (folderReady) void readDisk().then((n) => { if (n) { render(); void persistLocal(); } }); }, 8000);
 
 (async function init() {
+  const now = new Date();
+  $("outDay").value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
   const db = await openDb();
   const saved = await new Promise((resolve) => {
     const tx = db.transaction("meta");
