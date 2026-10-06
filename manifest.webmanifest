@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "Sổ văn bản",
-  "short_name": "Sổ văn bản",
-  "description": "Chụp văn bản là tự vào sổ. Cài ra màn hình điện thoại.",
+  "name": "SỔ NHẬP VĂN BẢN TỐ TỤNG",
+  "short_name": "Sổ tố tụng",
+  "description": "Chụp hoặc quét (scan) để nhập vào sổ.",
   "lang": "vi",
   "dir": "ltr",
   "start_url": "./",
