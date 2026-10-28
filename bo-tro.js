@@ -60,4 +60,15 @@
       coSW = true;
     });
   }
+
+  // Sau khi nhập Excel: tóm tắt + nút hoàn tác (in-memory, đến khi tải lại trang).
+  window.addEventListener("svb-da-nhap-excel", function (ev) {
+    var q = ev.detail || {};
+    var msg = "Nhập Excel: " + (q.added || 0) + " mới, " + (q.duplicates || 0) + " trùng bỏ qua, " +
+      (q.filled || 0) + " điền thêm ô trống, " + (q.conflicts || 0) + " xung đột giữ bản trong app.";
+    var coThe = (q.added || q.filled) && typeof window.__svbHoanTac === "function";
+    thanhBao(msg, coThe ? "Hoàn tác lần nhập" : null, function () {
+      if (confirm("Hoàn tác lần nhập Excel vừa rồi? Sổ sẽ trở về như trước khi nhập.") && window.__svbHoanTac()) thanhBao("Đã hoàn tác lần nhập Excel.", null, null);
+    });
+  });
 })();
