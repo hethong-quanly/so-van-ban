@@ -1,4 +1,4 @@
-const CACHE = "so-van-ban-v47";
+const CACHE = "so-van-ban-v48";
 // Danh sách tải sẵn để dùng offline. Khi build lại, cập nhật tên file assets và tăng số phiên bản.
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./offline.html", "./bo-tro.js", "./logo-vks.png",
   "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-192-maskable.png", "./icons/icon-512-maskable.png",

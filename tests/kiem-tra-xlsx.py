@@ -18,5 +18,10 @@ while r <= ws.max_row:
     for i in range(r + 1, end + 1):
         if ws.cell(i, 8).value not in (None, ""): bad += 1
     r = end + 1
+PH = ["P1","P2","P7","P9","P10","P11"]
+order = [k for k in seen if k]
+idx = [PH.index(k) if k in PH else 99 for k in order]
+if idx != sorted(idx): bad += 1; print("Sai thứ tự nhóm:", order)
+print("Thứ tự nhóm:", order[:10])
 print("Lỗi:", bad); print("Ví dụ:", [(str(m), ws.cell(m.min_row, 8).value) for m in mr[:5]])
 sys.exit(1 if bad else 0)
