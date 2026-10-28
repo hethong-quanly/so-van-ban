@@ -16,7 +16,7 @@ const SCHEMA = {
   properties: {
     soKyHieu: { type: "STRING", description: "Số, ký hiệu văn bản, ví dụ 132/2026/QĐ-TA. Rỗng nếu không thấy." },
     ngayBanHanh: { type: "STRING", description: "Ngày ban hành dạng YYYY-MM-DD. Rỗng nếu không thấy." },
-    noiGui: { type: "STRING", description: "Cơ quan ban hành / nơi gửi, ví dụ TAND khu vực 5 - TP.HCM." },
+    noiGui: { type: "STRING", description: "Cơ quan ban hành. Nếu khớp thì ghi ĐÚNG một trong các giá trị: \"TAND TP.CT\" (Tòa án nhân dân thành phố Cần Thơ), \"TAND KV1\" … \"TAND KV14\" (Tòa án nhân dân khu vực 1…14), \"TPT TANDTC tại TP.HCM\" (Tòa phúc thẩm Tòa án nhân dân tối cao tại TP.HCM). Cơ quan khác thì ghi nguyên tên ngắn gọn." },
     loai: { type: "STRING", description: "Loại văn bản viết tắt: QĐ, TB, CV, KL, BB, YC, GTT, CT, LĐ... hoặc tên loại." },
     trichYeu: { type: "STRING", description: "Trích yếu ngắn gọn nội dung, có tên bị can/bị cáo/đương sự nếu có." },
     donVi: { type: "STRING", description: "Đơn vị/người nhận ghi trên văn bản nếu có, không thì rỗng." },
