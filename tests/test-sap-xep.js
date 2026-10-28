@@ -25,3 +25,10 @@ const g2 = S.nhomNoiNhan([r("1", "TTr - KT"), r("2", "P 9"), r("3", "Phòng 1"),
 assert.deepStrictEqual(g2.rows.map(x => x.soDen), ["3", "8", "2", "4", "6", "1", "7", "9", "5"]);
 assert.deepStrictEqual(g2.merges, [{ start: 0, len: 2, value: "P1" }, { start: 2, len: 2, value: "P9" }, { start: 5, len: 2, value: "TTr - KT" }]);
 console.log("TEST PHÒNG NHẬN ĐẠT");
+// 5. Xuất theo ngày: giữ đủ số dòng của ngày đó, không mất/thêm dòng
+const ngay = Array.from({ length: 50 }, (_, i) => r(String(100 - i), ["P9", "p 1", "", "Phòng 10", "P8", "P7"][i % 6], "2026-07-08"));
+const g3 = S.nhomNoiNhan(ngay);
+assert.strictEqual(g3.rows.length, 50);
+assert.deepStrictEqual(new Set(g3.rows), new Set(ngay));
+assert.deepStrictEqual(g3.merges.map(m => m.value), ["P1", "P7", "P9", "P10", "P8"]);
+console.log("TEST XUẤT THEO NGÀY ĐẠT");
