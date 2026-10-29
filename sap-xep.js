@@ -48,25 +48,16 @@
   }
   function khoaNoiNhan(v) { return boDau(chuanNoiNhan(v)).replace(/[\s.]+/g, ""); }
 
-  /** Gom các dòng cùng nơi nhận. Trả về rows đã sắp và merges [{start, len, value}] (chỉ nhóm >1 dòng). Dòng trống nơi nhận nằm cuối, không gộp. */
+  /** Giữ thứ tự số đến tăng dần; các dòng LIỀN NHAU cùng nơi nhận được gộp 1 ô (như sổ tay của phòng). Trả về rows và merges [{start, len, value}] (chỉ nhóm >1 dòng). Dòng trống nơi nhận ngay dưới được coi là "như trên" và gộp chung; dòng trống ở đầu không gộp. */
   function nhomNoiNhan(list) {
-    var sorted = list.slice().sort(soSanhSoDen), groups = new Map(), blanks = [];
-    sorted.forEach(function (r) {
-      var key = khoaNoiNhan(r.nguoiNhan);
-      if (!key) { blanks.push(r); return; }
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(r);
-    });
-    var rows = [], merges = [], thuTu = [];
-    groups.forEach(function (g, key) { thuTu.push([key, g]); });
-    var hang = function (key) { var i = PHONG.indexOf(key); return i < 0 ? PHONG.length : i; };
-    thuTu.sort(function (a, b) { return hang(a[0]) - hang(b[0]); }); // sort ổn định: nhóm khác giữ thứ tự số đến nhỏ nhất
-    thuTu.forEach(function (x) {
-      var g = x[1];
-      if (g.length > 1) merges.push({ start: rows.length, len: g.length, value: chuanNoiNhan(g[0].nguoiNhan) });
-      rows.push.apply(rows, g);
-    });
-    rows.push.apply(rows, blanks);
+    var rows = list.slice().sort(soSanhSoDen), merges = [], i = 0;
+    while (i < rows.length) {
+      var key = khoaNoiNhan(rows[i].nguoiNhan), j = i + 1;
+      // dòng để trống ngay dưới cùng nơi nhận = "như trên" (sổ gốc gộp ô nên chỉ dòng đầu có chữ)
+      if (key) while (j < rows.length && (khoaNoiNhan(rows[j].nguoiNhan) === key || !khoaNoiNhan(rows[j].nguoiNhan))) j++;
+      if (key && j - i > 1) merges.push({ start: i, len: j - i, value: chuanNoiNhan(rows[i].nguoiNhan) });
+      i = j;
+    }
     return { rows: rows, merges: merges };
   }
 
