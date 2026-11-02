@@ -1,16 +1,17 @@
-/* Đồng bộ nhiều máy qua Supabase + đọc chữ viết tay bằng Gemini (Edge Function ocr-gemini).
-   Vá cho bản build: cần bundle gán window.__svbStore (zustand) và gọi window.__svbOcrGemini. */
+/* Đồng bộ nhiều máy qua Firebase (Firestore) với MỘT mật khẩu chung cho cả phòng.
+   Mỗi máy chỉ nhập mật khẩu một lần; trình duyệt nhớ đăng nhập. Logic gộp/chống trùng giữ nguyên (dong-bo-logic.js). */
 (function () {
   "use strict";
-  var URL_SB = "https://urvgfsirrglwmaaggtgt.supabase.co";
-  // Khóa công khai (anon). An toàn khi nhúng: dữ liệu được bảo vệ bằng RLS + danh sách email được phép.
-  var ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVydmdmc2lycmdsd21hYWdndGd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NDMxMjksImV4cCI6MjA5NzMxOTEyOX0.H-gPtZlFp2SeCknfeyzmhg7MH8MwygFUoE_WM25qnRU";
+  var CAU_HINH = { apiKey: "AIzaSyCqpgf7mqjwW58qvljDSjJD1afnjLlF9fo", authDomain: "kiemtra-nghiepvu.firebaseapp.com", projectId: "kiemtra-nghiepvu",
+    storageBucket: "kiemtra-nghiepvu.firebasestorage.app", messagingSenderId: "589960693059", appId: "1:589960693059:web:2be258ccd93552eb21dbf6" };
+  // Tài khoản nội bộ cố định; người dùng chỉ thấy ô mật khẩu. Dữ liệu được khóa bằng luật Firestore theo đúng tài khoản này.
+  var EMAIL_SO = "so-van-ban@kiemtra-nghiepvu.local";
   var BANG = "so_van_ban", CHU_KY = 30000, TRANG = 1000;
-  var REDIRECT = location.origin + location.pathname.replace(/[^/]*$/, "");
   var D = window.__svbDongBo;
-  if (!window.supabase || !D) return;
-  var sb = window.supabase.createClient(URL_SB, ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: "svb-auth" } });
-  var LS = { daDay: "svb-dongbo-daday", moc: "svb-dongbo-moc", daDua: "svb-dongbo-dadua", email: "svb-dongbo-email" };
+  if (!window.firebase || !D) return;
+  var app = firebase.initializeApp(CAU_HINH), auth = app.auth(), db = app.firestore();
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function () {});
+  var LS = { daDay: "svb-fb-daday", moc: "svb-fb-moc", daDua: "svb-fb-dadua" };
   function doc(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function ghi(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   var phien = null, duocPhep = null, dangChay = false, lanNua = false, trangThai = "Chưa đăng nhập", loiCuoi = "", thongBao = "";
@@ -43,66 +44,68 @@
     if (loiCuoi) bang.appendChild(el("div", { style: "color:#b91c1c;margin-top:4px" }, [loiCuoi]));
     if (thongBao) bang.appendChild(el("div", { style: "color:#374151;margin-top:4px" }, [thongBao]));
     if (!phien) {
-      var o = el("input", { type: "email", placeholder: "email@...", autocomplete: "email", style: "width:100%;box-sizing:border-box;margin-top:8px;padding:8px;border:1px solid #ccc;border-radius:8px" });
-      o.value = doc(LS.email, "");
-      var ma = el("input", { inputmode: "numeric", placeholder: "Mã 6 số trong email (nếu có)", style: "width:100%;box-sizing:border-box;margin-top:6px;padding:8px;border:1px solid #ccc;border-radius:8px" });
+      var o = el("input", { type: "password", placeholder: "Mật khẩu sổ", autocomplete: "current-password", style: "width:100%;box-sizing:border-box;margin-top:8px;padding:8px;border:1px solid #ccc;border-radius:8px", onkeydown: function (e) { if (e.key === "Enter") dangNhap(o.value); } });
       bang.appendChild(o);
-      bang.appendChild(nutB("Gửi link đăng nhập", function () { guiLink(o.value); }));
-      bang.appendChild(ma);
-      bang.appendChild(nutB("Đăng nhập bằng mã", function () { nhapMa(o.value, ma.value); }, true));
-      bang.appendChild(el("div", { style: "font-size:12px;color:#555;margin-top:8px" }, ["Chỉ email đã được cấp quyền mới xem và ghi được sổ chung. Nếu cài app trên iPhone, mở link trong Safari sẽ không vào app được: hãy dùng mã 6 số."]));
+      bang.appendChild(nutB("Mở sổ chung", function () { dangNhap(o.value); }));
+      bang.appendChild(el("div", { style: "font-size:12px;color:#555;margin-top:8px" }, ["Nhập mật khẩu chung của phòng một lần trên mỗi máy; máy sẽ nhớ, lần sau mở là có sổ."]));
+      setTimeout(function () { o.focus(); }, 0);
       return;
     }
-    bang.appendChild(el("div", { style: "margin-top:4px;color:#374151" }, ["Đăng nhập: " + (phien.user && phien.user.email || "")]));
-    if (duocPhep === false) { bang.appendChild(el("div", { style: "color:#b91c1c;margin-top:6px" }, ["Email này chưa được cấp quyền. Nhờ người quản lý thêm email vào danh sách."])); }
+    bang.appendChild(el("div", { style: "margin-top:4px;color:#374151" }, ["Đã mở sổ chung trên máy này."]));
     if (duocPhep && !doc(LS.daDua, false)) {
       bang.appendChild(el("div", { style: "margin-top:8px" }, ["Máy này chưa đưa sổ lên kho chung. Bấm nút dưới để gộp sổ trên máy với kho (tự bỏ văn bản trùng)."]));
       bang.appendChild(nutB("Đưa sổ trên máy này lên kho chung", duaLen));
     }
     if (duocPhep && doc(LS.daDua, false)) bang.appendChild(nutB("Đồng bộ ngay", function () { dongBo(); }));
-    bang.appendChild(nutB("Đăng xuất", dangXuat, true));
+    bang.appendChild(nutB("Thoát sổ chung trên máy này", dangXuat, true));
   }
 
-  // ---------- Đăng nhập ----------
-  function guiLink(email) {
-    email = String(email || "").trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { thongBao = "Email chưa đúng."; return ve(); }
-    ghi(LS.email, email); thongBao = "Đang gửi…"; ve();
-    sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: REDIRECT } }).then(function (r) {
-      thongBao = r.error ? "Không gửi được: " + r.error.message : "Đã gửi email đăng nhập tới " + email + ". Mở email và bấm link (hoặc nhập mã)."; ve();
+  // ---------- Đăng nhập bằng mật khẩu chung ----------
+  function dangNhap(mk) {
+    mk = String(mk || "");
+    if (!mk) { thongBao = "Nhập mật khẩu."; return ve(); }
+    thongBao = "Đang mở sổ…"; ve();
+    auth.signInWithEmailAndPassword(EMAIL_SO, mk).then(function () { thongBao = ""; ve(); }, function (e) {
+      var c = e && e.code || "";
+      thongBao = /wrong-password|invalid-credential|invalid-login|user-not-found/.test(c) ? "Mật khẩu không đúng." : /too-many-requests/.test(c) ? "Nhập sai nhiều lần, chờ ít phút rồi thử lại." : /network/.test(c) ? "Không có mạng." : "Không mở được: " + (e && e.message || c);
+      ve();
     });
   }
-  function nhapMa(email, ma) {
-    email = String(email || "").trim().toLowerCase(); ma = String(ma || "").replace(/\D/g, "");
-    if (!email || ma.length < 6) { thongBao = "Nhập email và mã trong email."; return ve(); }
-    sb.auth.verifyOtp({ email: email, token: ma, type: "email" }).then(function (r) { thongBao = r.error ? "Mã không đúng hoặc đã hết hạn." : ""; ve(); });
-  }
-  function dangXuat() { sb.auth.signOut().then(function () { phien = null; duocPhep = null; datTT("Chưa đăng nhập", ""); }); }
+  function dangXuat() { if (!confirm("Thoát sổ chung trên máy này? Sổ trên máy vẫn giữ, lần sau cần nhập lại mật khẩu.")) return; auth.signOut(); }
 
   // ---------- Đồng bộ ----------
   function store() { return window.__svbStore; }
   function choStore() { return new Promise(function (ok) { (function c() { var s = store(); if (s && s.getState().hydrated !== false) return ok(s); setTimeout(c, 300); })(); }); }
-  function kiemQuyen() { return sb.rpc("la_nguoi_duoc_phep").then(function (r) { duocPhep = !r.error && r.data === true; return duocPhep; }); }
+  function msMoc(d) { var u = d.updatedAt; return u && u.toMillis ? u.toMillis() : 0; }
   function taiVe(tu) {
     var tat = [];
-    function trang(moc) {
-      var q = sb.from(BANG).select("*").order("updated_at", { ascending: true }).limit(TRANG);
-      if (moc) q = q.gt("updated_at", moc);
-      return q.then(function (r) {
-        if (r.error) throw r.error;
-        tat = tat.concat(r.data);
-        if (r.data.length === TRANG) return trang(r.data[r.data.length - 1].updated_at);
+    function trang(sau) {
+      var q = db.collection(BANG).orderBy("updatedAt").limit(TRANG);
+      if (tu) q = q.where("updatedAt", ">", firebase.firestore.Timestamp.fromMillis(tu));
+      if (sau) q = q.startAfter(sau);
+      return q.get().then(function (snap) {
+        snap.docs.forEach(function (x) { var d = x.data(); d._ms = msMoc(d); delete d.updatedAt; tat.push(d); });
+        if (snap.size === TRANG) return trang(snap.docs[snap.size - 1]);
         return tat;
       });
     }
-    return trang(tu);
+    return trang(null);
   }
   function day(dongs) {
     var ps = [];
-    for (var i = 0; i < dongs.length; i += 500) ps.push(sb.from(BANG).upsert(dongs.slice(i, i + 500), { onConflict: "id" }).then(function (r) { if (r.error) throw r.error; }));
+    for (var i = 0; i < dongs.length; i += 400) {
+      var b = db.batch();
+      dongs.slice(i, i + 400).forEach(function (d) {
+        var o = {}; for (var k in d) if (d[k] !== undefined) o[k] = d[k];
+        o.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        b.set(db.collection(BANG).doc(String(d.id)), o);
+      });
+      ps.push(b.commit());
+    }
     return Promise.all(ps);
   }
-  function lui(moc) { if (!moc) return moc; var t = new Date(moc).getTime() - 60000; return new Date(t).toISOString(); } // chừa 1 phút cho giao dịch đến muộn
+  function mocCuoi(dongs) { return dongs.length ? Math.max.apply(null, dongs.map(function (d) { return d._ms || 0; })) : null; }
+  function lui(moc) { return moc ? moc - 60000 : null; } // chừa 1 phút cho giao dịch đến muộn
   function dongBo() {
     if (!phien || !duocPhep || !doc(LS.daDua, false)) return Promise.resolve();
     if (dangChay) { lanNua = true; return Promise.resolve(); }
@@ -114,7 +117,7 @@
         var g = D.gopTaiVe(S.getState().records, dongs, daDay);
         if (g.ketQua.moi || g.ketQua.capNhat || g.ketQua.xoa) S.setState({ records: g.records, updatedAt: new Date().toISOString() });
         if (g.ketQua.xoa) thongBao = "Có " + g.ketQua.xoa + " văn bản đã bị xóa từ máy khác.";
-        if (dongs.length) ghi(LS.moc, dongs[dongs.length - 1].updated_at);
+        if (dongs.length) ghi(LS.moc, mocCuoi(dongs));
         ghi(LS.daDay, daDay);
         var c = D.canDay(S.getState().records, daDay, 20);
         if (c.chanXoa) thongBao = "Có " + c.matDi + " văn bản biến mất khỏi máy này cùng lúc nên KHÔNG xóa trên kho chung. Bấm Đồng bộ ngay để lấy lại.";
@@ -138,7 +141,7 @@
       return day(g.dongs).then(function () {
         var daDay = {}; g.records.forEach(function (r) { daDay[r.id] = String(r.rev == null ? "" : r.rev); });
         S.setState({ records: g.records, updatedAt: new Date().toISOString() });
-        ghi(LS.daDay, daDay); ghi(LS.moc, dongs.length ? dongs[dongs.length - 1].updated_at : null); ghi(LS.daDua, true);
+        ghi(LS.daDay, daDay); ghi(LS.moc, mocCuoi(dongs)); ghi(LS.daDua, true);
         var k = g.ketQua; thongBao = "Xong: " + k.moi + " văn bản mới đưa lên, " + k.trung + " trùng, " + k.boSung + " được bổ sung, " + k.xungDot + " khác nhau (giữ bản trên kho).";
       });
     }).then(function () { return dongBo(); }, function (e) { datTT("Lỗi đồng bộ", "Lỗi: " + (e && e.message || e)); });
@@ -148,14 +151,13 @@
   function batDau() {
     choStore().then(function (S) { if (!batDau.sub) batDau.sub = S.subscribe(function (s, p) { if (s.records !== p.records && !dangChay) henDay(); }); });
   }
-  sb.auth.onAuthStateChange(function (_ev, s) {
-    phien = s;
-    if (!s) { duocPhep = null; return datTT("Chưa đăng nhập"); }
-    kiemQuyen().then(function (ok) {
-      if (!ok) return datTT("Chưa được cấp quyền");
-      if (!doc(LS.daDua, false)) { datTT("Chưa đưa sổ lên"); return moBang(); }
-      batDau(); dongBo();
-    });
+  auth.onAuthStateChanged(function (u) {
+    phien = u ? { user: u } : null;
+    if (!u) { duocPhep = null; return datTT("Chưa đăng nhập"); }
+    duocPhep = u.email === EMAIL_SO;
+    if (!duocPhep) return datTT("Chưa được cấp quyền");
+    if (!doc(LS.daDua, false)) { datTT("Chưa đưa sổ lên"); return moBang(); }
+    batDau(); dongBo();
   });
   setInterval(function () { if (document.visibilityState === "visible") dongBo(); }, CHU_KY);
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") dongBo(); });
@@ -163,26 +165,7 @@
   window.addEventListener("load", function () { document.body.appendChild(nut); ve(); });
   if (document.body) { document.body.appendChild(nut); ve(); }
 
-  // ---------- OCR bằng Gemini (khi có mạng + đã đăng nhập + được phép); lỗi thì app tự dùng Tesseract ----------
-  var kqGemini = null;
-  window.__svbOcrGemini = function (dataUrl, baoTien) {
-    if (!phien || !duocPhep || !navigator.onLine) return Promise.resolve(null);
-    baoTien && baoTien("Đang đọc chữ (cả chữ viết tay) bằng Gemini…");
-    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    var t = setTimeout(function () { ctl && ctl.abort(); }, 45000);
-    return sb.functions.invoke("ocr-gemini", { body: { image: dataUrl } }).then(function (r) {
-      clearTimeout(t);
-      var f = r && !r.error && r.data && r.data.fields;
-      if (!f) return null;
-      var txt = String(f.vanBan || "").trim();
-      if (txt.length < 24) txt = [f.noiGui, f.soKyHieu, f.ngayBanHanh, f.loai, f.trichYeu].filter(Boolean).join("\n");
-      kqGemini = { text: txt, fields: {
-        soKyHieu: f.soKyHieu || "", ngayBanHanh: /^\d{4}-\d{2}-\d{2}$/.test(f.ngayBanHanh || "") ? f.ngayBanHanh : "",
-        noiGui: f.noiGui || "", loai: f.loai || "", trichYeu: f.trichYeu || "", donVi: f.donVi || "",
-        nguon: "ai", doTinCay: typeof f.doTinCay === "number" ? f.doTinCay : null,
-        canhBao: "Đọc bằng Gemini (AI). Hãy đối chiếu với bản giấy trước khi ghi sổ." + (f.ghiChu ? " Bút phê: " + f.ghiChu : "") } };
-      return kqGemini;
-    }, function () { clearTimeout(t); return null; });
-  };
-  window.__svbTruongGemini = function (text) { return kqGemini && kqGemini.text === text ? kqGemini.fields : null; };
+  // ---------- OCR: Gemini (qua Supabase) đã tắt khi chuyển sang Firebase; app tự dùng Tesseract ----------
+  window.__svbOcrGemini = function () { return Promise.resolve(null); };
+  window.__svbTruongGemini = function () { return null; };
 })();
